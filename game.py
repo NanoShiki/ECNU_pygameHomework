@@ -7,7 +7,7 @@ import os
 from moviepy import *
 
 class Note:
-    def __init__(self):
+    def __init__(self, path, odd):
         self.color = (255, 255, 255)
         self.radius = 5.0           
         self.minRadius = 5.0        
@@ -17,6 +17,12 @@ class Note:
         self.position = (0, 0)
         self.lifeCycle = 1.5        #音符生命周期
         self.restLife = 1.5         #音符剩余生命
+
+        if odd:
+            self.texture = pygame.image.load(path + "/红.png").convert_alpha()
+        else:
+            self.texture = pygame.image.load(path + "/蓝.png").convert_alpha()
+
 
     def spwan(self, position, color):
         self.position = position
@@ -52,7 +58,7 @@ class Particle:
 
 
 class Game:
-    def __init__(self, audio_path, video_path):
+    def __init__(self, path, audio_path, video_path):
         pygame.init()
         self.width, self.height = 800, 450
         self.screen = pygame.display.set_mode((self.width, self.height))
@@ -69,6 +75,8 @@ class Game:
         self.noteNum = 0
         self.lastNoteTimer = 0
         self.start_time = 0  # 记录游戏开始的时间
+        self.odd = True
+        self.path = path
 
         self.audio_path = audio_path    #MP3路径
         self.video_path = video_path    #MP4路径
@@ -91,10 +99,12 @@ class Game:
         self.particles = newParticlesList
     
     def generateNote(self):
-        note = Note()
+        note = Note(self.path, self.odd)
         notePos = (random.randint(self.width //4, self.width // 4 * 3),
                             random.randint(self.height // 4, self.height // 4 * 3))
-        noteCol = (random.randint(155, 255), random.randint(155, 255), random.randint(155, 255))
+        if self.odd: noteCol = (150, 0, 0)
+        else: noteCol = (0, 0, 150)
+        self.odd = not self.odd
         note.spwan(notePos, noteCol)
         self.lastNoteTimer = note.timer
         self.notes.append(note)
@@ -108,7 +118,12 @@ class Game:
             if n.living:
                 n.update()
                 newNotesList.append(n)
-                pygame.draw.circle(self.screen, n.color, n.position, n.radius)
+
+                newWidth = int(n.radius * 2)
+                newHeight = int(n.radius * 2)
+                scaledTexture = pygame.transform.scale(n.texture, (newWidth, newHeight))
+                textureRec = scaledTexture.get_rect(center=n.position)
+                self.screen.blit(scaledTexture, textureRec)
         self.notes = newNotesList
 
     def draw(self, frame):
@@ -238,10 +253,23 @@ class Game:
         self.show_final_score()
     
     def show_final_score(self):
-        print(f"游戏结束！您的得分是: {self.score}, 达成率为: {self.score * 100 // self.noteNum}%")
-        pygame.quit()
-        exit()
- 
+        self.screen.fill((0, 0, 0))
+        resultFont = pygame.font.Font(None, 36)
+        resultText = f"Game Over! SCORE: {self.score}, TP: {self.score * 100 // self.noteNum}% press ESC to exit"
+        resultText = resultFont.render(resultText, True, (255, 255, 255))
+        resultRect = resultText.get_rect(center=(self.width // 2, self.height // 2))
+        self.screen.blit(resultText, resultRect)
+        pygame.display.flip()
+        while True:
+            for event in pygame.event.get():    
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        exit()
+
 if __name__ == "__main__":
     print("\n游戏准备就绪,启动中...")
 
@@ -258,5 +286,5 @@ if __name__ == "__main__":
         path += j
     
     #启动游戏
-    game = Game( path + "/一等情事.mp3", path + "/一等情事.mp4")
+    game = Game(path, path + "/一等情事.mp3", path + "/一等情事.mp4")
     game.run()
