@@ -1,20 +1,32 @@
-import sys
 import time
 import pygame
 import random
 import librosa
 import numpy as np
+import os
 from moviepy import *
  
+class Note:
+    def __init__(self, path):
+        self.color = (255, 255, 255)
+        self.radius = 5             #当前半径
+        self.minRadius = 5          #最小半径
+        self.maxRadius = 30         #最大半径
+        self.timer = 0              #出现时间
+        self.visible = False        #是否可见
+        self.position = (0, 0)      #音符位置
+        self.interval = 0.5         #音符出现间隔
 
-class OSU:
-    def __init__(self, audio_path, video_path, note_interval):
+
+
+class The_Elden_Ball:
+    def __init__(self, path, audio_path, video_path, note_interval):
         pygame.init()
         self.width, self.height = 1280, 760
         self.screen = pygame.display.set_mode((self.width, self.height))
-        self.alpha = 60
+        self.alpha = 90
         self.screen.fill((0, 0, 0))
-        pygame.display.set_caption("艾尔登法球之千恋万球")
+        pygame.display.set_caption("艾尔登法球")
         pygame.display.flip()
         
         self.note_color = (255, 255, 255)  # 音符颜色
@@ -131,12 +143,13 @@ class OSU:
             else:
                 if time.time() - self.start_time - x[len(x) - 1] >= 1: self.note_visible = False
             #根据视频进行参数调节, 在此x[0]是9.5, 根据这个数以及视频音频播放的时刻, 将两者对齐
-            if time.time() - self.start_time > x[0] - int(x[0]) + 0.6:
+            if time.time() - self.start_time > x[0] - int(x[0]) + 0.7:
                 start_video = True
             if start_video:
                 self.draw(frames[j])
                 j += 1
             clock.tick(clip.fps)
+        self.show_final_score()
     
     def get_beats(self):
         y_audio, sr = librosa.load(self.audio_path)
@@ -161,23 +174,24 @@ class OSU:
 
 
     def show_final_score(self):
-        print(f"游戏结束！您的得分是: {self.score}")
+        print(f"游戏结束！您的得分是: {self.score}, 达成率为: {self.score // self.noteNum * 100}%")
         pygame.quit()
  
 if __name__ == "__main__":
-    difficulty = input("请输入游戏难度(Ciallo~(∠・ω< )⌒★):").strip()
- 
-    # 根据难度设置音符生成的间隔
-    difficulty_map = {
-        "Ciallo~(∠・ω< )⌒★": 0.5
-    }
- 
-    if difficulty in difficulty_map:
-        note_interval = difficulty_map[difficulty]
-    else:
-        print("需要按照规定输入游戏难度！")
-        sys.exit()
-
     print("\n游戏准备就绪,启动中...")
-    game = OSU("D:\A my songs\一等情事.mp3", "C:/Users/ruheng47/Desktop/一等情事.mp4", note_interval)
+
+    #获取当前py文件所在的绝对路径(需要os库)
+    current_directory = os.path.dirname(os.path.abspath(__file__))
+    dir = []
+    for i in current_directory:
+        if i == "\\":
+            dir.append("/")
+        else:
+            dir.append(i)
+    path = ""
+    for j in dir:
+        path += j
+    
+    #启动游戏
+    game = The_Elden_Ball(path, path + "/一等情事.mp3", path + "/一等情事.mp4", note_interval = 0.5)
     game.run()
