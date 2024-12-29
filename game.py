@@ -4,10 +4,9 @@ import random
 import librosa
 import numpy as np
 import os
-from moviepy import *
 
 class Note:
-    def __init__(self, path, odd):
+    def __init__(self, resourcesPath, odd):
         self.color = (255, 255, 255)
         self.radius = 5.0           
         self.minRadius = 5.0        
@@ -19,9 +18,9 @@ class Note:
         self.restLife = 1.5         #音符剩余生命
 
         if odd:
-            self.texture = pygame.image.load(path + "/红.png").convert_alpha()
+            self.texture = pygame.image.load(resourcesPath + "红.png").convert_alpha()
         else:
-            self.texture = pygame.image.load(path + "/蓝.png").convert_alpha()
+            self.texture = pygame.image.load(resourcesPath + "蓝.png").convert_alpha()
 
 
     def spwan(self, position, color):
@@ -58,7 +57,7 @@ class Particle:
 
 
 class Game:
-    def __init__(self, path, audio_path, video_path):
+    def __init__(self, resourcesPath):
         pygame.init()
         self.width, self.height = 800, 450
         self.screen = pygame.display.set_mode((self.width, self.height))
@@ -76,10 +75,8 @@ class Game:
         self.lastNoteTimer = 0
         self.start_time = 0  # 记录游戏开始的时间
         self.odd = True
-        self.path = path
-
-        self.audio_path = audio_path    #MP3路径
-        self.video_path = video_path    #MP4路径
+        self.path = resourcesPath
+        self.audio_path = resourcesPath + "/一等情事.mp3"    #MP3路径
         
         self.font = pygame.font.Font(None, 36)
         self.noteInterval = 0.5        #音符生成间隔
@@ -141,30 +138,35 @@ class Game:
         self.screen.blit(score_text, (10, 10))
         pygame.display.flip()
  
-    def preLoadFrames(self, clip):
+    def preLoadFrames(self, folder):
         # 提前加载所有动画
         frames = []
-        total_frames = clip.reader.n_frames         #获取视频帧总数
         loading_font = pygame.font.Font(None, 36)   #Loading字体
-        for frame_index, frame in enumerate(clip.iter_frames()):
+        filenames = sorted(os.listdir(folder))
+        totalFrames = len(filenames)
+        for frameIndex, filename in enumerate(filenames):
             for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         exit()
-            frame = np.rot90(frame)
-            frame_surface = pygame.surfarray.make_surface(np.flipud(frame))
-            frame_surface = pygame.transform.scale(frame_surface, (self.width, self.height))
-            frames.append(frame_surface)
-
+            if filename.endswith('.jpg'):
+                imgPath = os.path.join(folder, filename)
+                frame = pygame.image.load(imgPath)
+                frames.append(frame)
             # 计算加载进度
-            progress = (frame_index + 1) / total_frames
+            progress = (frameIndex + 1) / totalFrames
             progress_percent = int(progress * 100)
             progress_text = f"Loading: {progress_percent}%"
             #显示加载进度
             self.screen.fill((0, 0, 0))
             loading_text = loading_font.render(progress_text, True, (255, 255, 255))
             loading_rect = loading_text.get_rect(center=(self.width // 2, self.height // 2))
+            menu = pygame.image.load(self.path + "/mainMenu.jpg")
+            self.screen.blit(menu, (0, 0))
             self.screen.blit(loading_text, loading_rect)
             pygame.display.flip()
         return frames
@@ -194,10 +196,14 @@ class Game:
         clock = pygame.time.Clock()
         x, y = self.get_beats()
         i, j = 0, 0
-        clip = VideoFileClip(self.video_path)
 
+        pygame.mixer.music.load(self.path + "Elden Ring Main Theme.mp3")
+        pygame.mixer.music.play()
         # 提前加载所有动画
-        frames = self.preLoadFrames(clip)
+        frames = self.preLoadFrames(self.path + "frames")
+        
+        pygame.mixer.music.stop()
+        pygame.mixer.music.unload() 
 
         pygame.mixer.music.load(self.audio_path)
         pygame.mixer.music.play()
@@ -248,7 +254,7 @@ class Game:
                 j += 1
 
             #限制帧数, 防止音画不同步
-            clock.tick(clip.fps)
+            clock.tick(30)
 
         self.show_final_score()
     
@@ -281,10 +287,11 @@ if __name__ == "__main__":
             dir.append("/")
         else:
             dir.append(i)
-    path = ""
+    resourcesPath = ""
     for j in dir:
-        path += j
+        resourcesPath += j
+    resourcesPath += "/resources/"
     
     #启动游戏
-    game = Game(path, path + "/一等情事.mp3", path + "/一等情事.mp4")
+    game = Game(resourcesPath)
     game.run()
