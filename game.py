@@ -4,35 +4,36 @@ import random
 import librosa
 import numpy as np
 import os
+from enum import Enum
+
+#三种准确度
+class AccuracyLevel(Enum):
+    MISS = 0    #用不太上
+    GOOD = 1
+    PERFECT = 2
 
 class Note:
-    def __init__(self, resourcesPath, odd):
-        self.color = (255, 255, 255)
+    def __init__(self, resourcesPath, odd, position, color):
+        self.color = color
         self.radius = 5.0           
         self.minRadius = 5.0        
         self.maxRadius = 30.0         
-        self.timer = 0              #音符出现时间
-        self.living = False        
-        self.position = (0, 0)
+        self.timer = time.time()              #音符出现时间
+        self.living = True        
+        self.position = position
         self.lifeCycle = 1.5        #音符生命周期
         self.restLife = 1.5         #音符剩余生命
+        self.accuracy = AccuracyLevel.GOOD
 
         if odd:
             self.texture = pygame.image.load(resourcesPath + "红.png").convert_alpha()
         else:
             self.texture = pygame.image.load(resourcesPath + "蓝.png").convert_alpha()
 
-
-    def spwan(self, position, color):
-        self.position = position
-        self.color = color
-        self.radius = self.minRadius
-        self.timer = time.time()
-        self.living = True
-
     def update(self):
         duration = time.time() - self.timer
-        self.radius = pygame.math.lerp(self.minRadius, self.maxRadius, min(duration * 4, 1))
+        self.radius = pygame.math.lerp(self.minRadius, self.maxRadius, min(duration * 2.5, 1))
+        if duration * 2.5 > 1: self.accuracy = AccuracyLevel.PERFECT
         self.restLife = self.lifeCycle - duration
         if self.restLife <= 0: self.living = False    
 
@@ -70,21 +71,45 @@ class Game:
         self.particles = []
         self.tryGenerateNote = False
 
+        self.particlesNum = 12
+
         self.score = 0
         self.noteNum = 0
         self.lastNoteTimer = 0
         self.start_time = 0  # 记录游戏开始的时间
         self.odd = True
         self.path = resourcesPath
-        self.audio_path = resourcesPath + "/一等情事.mp3"    #MP3路径
+        self.audio_path = resourcesPath + "一等情事.mp3"    #MP3路径
+        self.effectiveAudio = pygame.mixer.Sound(resourcesPath + "Ciallo.mp3")
+        self.accumulate = 0
         
         self.font = pygame.font.Font(None, 36)
-        self.noteInterval = 0.5        #音符生成间隔
+        self.noteInterval = 0.5        #音符生成间隔, 可调整游戏难度
  
-    def generateParticles(self, notePos, color):
-        for _ in range(8):
-            particle = Particle(notePos, color)
-            self.particles.append(particle)
+    def generateParticles(self, note):
+        if note.accuracy == AccuracyLevel.PERFECT:
+            rainbowColors = [
+                (255, 0, 0),    # 红
+                (255, 128, 0),  # 橙
+                (255, 255, 0),  # 黄
+                (0, 255, 0),    # 绿
+                (0, 128, 255),  # 蓝
+                (0, 0, 255),    # 靛
+                (128, 0, 255)   # 紫
+            ]
+            for i in range(self.particlesNum):
+                startColor = rainbowColors[i % len(rainbowColors)]
+                endColor = rainbowColors[(i + 1) % len(rainbowColors)]
+                progress = (i + 1) / 12
+                color = (pygame.math.lerp(startColor[0], endColor[0], progress), 
+                         pygame.math.lerp(startColor[1], endColor[1], progress), 
+                         pygame.math.lerp(startColor[2], endColor[2], progress))
+                particle = Particle(note.position, color)
+                self.particles.append(particle)
+        else:
+            for _ in range(self.particlesNum):     
+                particle = Particle(note.position, note.color)
+                self.particles.append(particle)
 
     def updateAllParticles(self):
         newParticlesList = []
@@ -95,14 +120,14 @@ class Game:
                 pygame.draw.circle(self.screen, p.color, (p.x, p.y), p.size)
         self.particles = newParticlesList
     
+    #在随机位置产生note.
     def generateNote(self):
-        note = Note(self.path, self.odd)
         notePos = (random.randint(self.width //4, self.width // 4 * 3),
                             random.randint(self.height // 4, self.height // 4 * 3))
         if self.odd: noteCol = (150, 0, 0)
         else: noteCol = (0, 0, 150)
         self.odd = not self.odd
-        note.spwan(notePos, noteCol)
+        note = Note(self.path, self.odd, notePos, noteCol)
         self.lastNoteTimer = note.timer
         self.notes.append(note)
         self.noteNum += 1
@@ -135,6 +160,9 @@ class Game:
 
         #显示分数
         score_text = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
+        if self.accumulate >= 5000: 
+            self.effectiveAudio.play()
+            self.accumulate = 0
         self.screen.blit(score_text, (10, 10))
         pygame.display.flip()
  
@@ -165,7 +193,7 @@ class Game:
             self.screen.fill((0, 0, 0))
             loading_text = loading_font.render(progress_text, True, (255, 255, 255))
             loading_rect = loading_text.get_rect(center=(self.width // 2, self.height // 2))
-            menu = pygame.image.load(self.path + "/mainMenu.jpg")
+            menu = pygame.image.load(self.path + "mainMenu.jpg")
             self.screen.blit(menu, (0, 0))
             self.screen.blit(loading_text, loading_rect)
             pygame.display.flip()
@@ -199,7 +227,7 @@ class Game:
 
         pygame.mixer.music.load(self.path + "Elden Ring Main Theme.mp3")
         pygame.mixer.music.play()
-        # 提前加载所有动画
+
         frames = self.preLoadFrames(self.path + "frames")
         
         pygame.mixer.music.stop()
@@ -226,7 +254,6 @@ class Game:
                         pygame.mixer.music.unload() 
                         self.show_final_score()
 
-                #检测鼠标点击
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mousePos = pygame.mouse.get_pos()
                     for n in self.notes:
@@ -234,9 +261,10 @@ class Game:
                                             n.position[1] - n.maxRadius,
                                             n.maxRadius * 2, n.maxRadius * 2)
                         if noteRect.collidepoint(mousePos):
-                            self.score += 1
+                            self.score += 50 * n.accuracy.value
+                            self.accumulate += 50 * n.accuracy.value
                             n.living = False
-                            self.generateParticles(n.position, n.color) 
+                            self.generateParticles(n) 
 
             #根据音频信息生成note
             if i < len(x) and time.time() - self.start_time - x[i] >= 0:
@@ -261,7 +289,7 @@ class Game:
     def show_final_score(self):
         self.screen.fill((0, 0, 0))
         resultFont = pygame.font.Font(None, 36)
-        resultText = f"Game Over! SCORE: {self.score}, TP: {self.score * 100 // self.noteNum}% press ESC to exit"
+        resultText = f"Game Over! SCORE: {self.score}, TP: {self.score * 100 * 100 // (self.noteNum * 100)}% press ESC to exit"
         resultText = resultFont.render(resultText, True, (255, 255, 255))
         resultRect = resultText.get_rect(center=(self.width // 2, self.height // 2))
         self.screen.blit(resultText, resultRect)
