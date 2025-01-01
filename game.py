@@ -161,7 +161,7 @@ class Game:
             for n in self.notes:
                 xDiff = abs(notePos[0] - n.position[0])
                 yDiff = abs(notePos[1] - n.position[1])
-                if xDiff**2 + yDiff**2 < n.maxRadius**2:
+                if xDiff**2 + yDiff**2 < ((n.maxRadius + 10) * 2)**2:
                     return False
             return True
         notePos = (random.randint(self.width //4, self.width // 4 * 3),
