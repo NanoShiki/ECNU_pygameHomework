@@ -249,7 +249,6 @@ class Game:
         y_audio, sr = librosa.load(self.audio_path)
         _, beats = librosa.beat.beat_track(y=y_audio, sr=sr)
         x = librosa.frames_to_time(beats, sr=sr)
-        y_audio, sr = librosa.load(self.audio_path)
 
         # 提取相应节拍的振幅作为Y坐标
         amplitude = []
